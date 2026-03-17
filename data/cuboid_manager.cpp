@@ -34,14 +34,6 @@ void cuboid_manager::update_cuboid_avoid_undo_stack(uint32_t id, const cuboid &u
     update_requested(id, updated);
 }
 
-void cuboid_manager::update_cuboid_with_undo_stack(uint32_t id, const cuboid &previous_state) {
-    const cuboid *current = find(id);
-    if (!current) {
-        return;
-    }
-    undo_stack.push(new update_cuboid_command(this, previous_state, *current));
-}
-
 cuboid *cuboid_manager::find(uint32_t id) {
     auto iterator = std::ranges::find_if(cuboids,[id](const cuboid &c) { return c.id == id; });
     return (iterator != cuboids.end()) ? &(*iterator) : nullptr;

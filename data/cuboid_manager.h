@@ -20,7 +20,6 @@ class cuboid_manager : public QObject {
     void update_cuboid(uint32_t id, const cuboid &updated);
 
     void update_cuboid_avoid_undo_stack(uint32_t id, const cuboid &updated);
-    void update_cuboid_with_undo_stack(uint32_t id, const cuboid &previous_state);
 
     cuboid *find(uint32_t id);
     const cuboid *find(uint32_t id) const;

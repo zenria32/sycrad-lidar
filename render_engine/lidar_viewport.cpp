@@ -599,7 +599,12 @@ void lidar_viewport::end_gizmo_drag() {
 
 	const uint32_t id = cmngr->get_selected_id();
 	if (id != 0) {
-		cmngr->update_cuboid_with_undo_stack(id, drag_snapshot);
+		const cuboid *current = cmngr->find(id);
+		if (current) {
+			cuboid final_state = *current;
+			cmngr->update_cuboid_avoid_undo_stack(id, drag_snapshot);
+			cmngr->update_cuboid(id, final_state);
+		}
 	}
 
 	is_dragging = false;

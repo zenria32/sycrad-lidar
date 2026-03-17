@@ -377,6 +377,9 @@ bool import_widget::event(QEvent *event) {
 			return QDialog::event(event);
 		}
 		auto *mouse_event = static_cast<QMouseEvent *>(event);
+		if (mouse_event->button() != Qt::LeftButton) {
+			return QDialog::event(event);
+		}
 		for (int i = 0; i < dataset_cards.size(); ++i) {
 			QWidget *card = dataset_cards[i];
 			QPoint card_position = card->mapFrom(this, mouse_event->pos());

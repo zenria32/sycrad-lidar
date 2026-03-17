@@ -75,20 +75,6 @@ class update_cuboid_command : public QUndoCommand {
         mngr->update_requested(new_data.id, new_data);
     }
 
-    int id() const override { return 1003; }
-
-    bool mergeWith(const QUndoCommand *other) override {
-        if (other->id() != id()) {
-            return false;
-        }
-        const auto *command = static_cast<const update_cuboid_command *>(other);
-        if (command->new_data.id != new_data.id) {
-            return false;
-        }
-        new_data = command->new_data;
-        return true;
-    }
-
     private:
     cuboid_manager *mngr;
     cuboid previous_data;
