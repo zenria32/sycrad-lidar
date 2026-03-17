@@ -1,0 +1,22 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/">
+        <file>splash/800x500.png</file>
+        <file>splash/1200x750.png</file>
+        <file>style.qss</file>
+        <file>icons/add_cube.svg</file>
+        <file>icons/select.svg</file>
+        <file>icons/move.svg</file>
+        <file>icons/rotate.svg</file>
+        <file>icons/scale.svg</file>
+        <file>icons/folder.svg</file>
+        <file>icons/file.svg</file>
+        <file>icons/arrow_down.svg</file>
+        <file>icons/arrow_right.svg</file>
+        <file>icons/success.svg</file>
+        <file>icons/info.svg</file>
+        <file>icons/warning.svg</file>
+        <file>icons/error.svg</file>
+        <file>icons/win.ico</file>
+    </qresource>
+</RCC>
