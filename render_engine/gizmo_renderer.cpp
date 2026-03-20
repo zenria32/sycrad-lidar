@@ -4,10 +4,6 @@
 #include <cmath>
 #include <cstring>
 
-#ifndef PI
-#define PI 3.14159265358979323846
-#endif
-
 struct alignas(16) gizmo_uniform {
 	float mvp[16];
 	float color[4];
@@ -113,7 +109,7 @@ void gizmo_renderer::generate_cylinder(const QVector3D &start, const QVector3D &
 	const auto base_index = static_cast<uint32_t>(vertices.size());
 
 	for (int i = 0; i < segments; ++i) {
-		const float angle = 2.0f * static_cast<float>(PI) * static_cast<float>(i) / static_cast<float>(segments);
+		const float angle = 2.0f * static_cast<float>(M_PI) * static_cast<float>(i) / static_cast<float>(segments);
 		const float cos = std::cos(angle);
 		const float sin = std::sin(angle);
 		const QVector3D offset = (perpendicular * cos + binorm * sin) * radius;
@@ -157,7 +153,7 @@ void gizmo_renderer::generate_cone(const QVector3D &base_center, const QVector3D
 	vertices.push_back({{tip.x(), tip.y(), tip.z()}});
 
 	for (int i = 0; i < segments; ++i) {
-		const float angle = 2.0f * static_cast<float>(PI) * static_cast<float>(i) / static_cast<float>(segments);
+		const float angle = 2.0f * static_cast<float>(M_PI) * static_cast<float>(i) / static_cast<float>(segments);
 		const float cos = std::cos(angle);
 		const float sin = std::sin(angle);
 		const QVector3D p = base_center + (perpendicular * cos + binorm * sin) * radius;
@@ -219,7 +215,7 @@ void gizmo_renderer::generate_arc(const QVector3D &plane_u, const QVector3D &pla
 
 	const QVector3D plane_normal = QVector3D::crossProduct(plane_u, plane_v).normalized();
 	const auto base_index = static_cast<uint32_t>(vertices.size());
-	constexpr float sweep = static_cast<float>(PI) * 0.5f;
+	constexpr float sweep = static_cast<float>(M_PI) * 0.5f;
 
 	for (int i = 0; i <= arc_segments; ++i) {
 		const float theta = sweep * static_cast<float>(i) / static_cast<float>(arc_segments);
@@ -229,7 +225,7 @@ void gizmo_renderer::generate_arc(const QVector3D &plane_u, const QVector3D &pla
 		const QVector3D radial = center_on_arc.normalized();
 
 		for (int j = 0; j < tube_segments; ++j) {
-			const float phi = 2.0f * static_cast<float>(PI) * static_cast<float>(j) / static_cast<float>(tube_segments);
+			const float phi = 2.0f * static_cast<float>(M_PI) * static_cast<float>(j) / static_cast<float>(tube_segments);
 			const QVector3D offset = (radial * std::cos(phi) + plane_normal * std::sin(phi)) * tube_radius;
 			const QVector3D p = center_on_arc + offset;
 			vertices.push_back({{p.x(), p.y(), p.z()}});

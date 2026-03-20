@@ -33,6 +33,7 @@ class statistics_widget;
 class cuboid_manager;
 class calibration_store;
 class camera_manager;
+class save_manager;
 
 class main_window : public QMainWindow {
 	Q_OBJECT
@@ -55,6 +56,7 @@ class main_window : public QMainWindow {
 	void process_overlays();
 
 	bool eventFilter(QObject *object, QEvent *event) override;
+	void closeEvent(QCloseEvent *event) override;
 
 	void process_object_menu();
 	void process_explorer_tab();
@@ -67,6 +69,7 @@ class main_window : public QMainWindow {
 	void notify(const QString &message, int type = 0);
 
 	void load_file(const QString &path);
+	void import_label();
 
 	void load_qss();
 
@@ -119,6 +122,7 @@ class main_window : public QMainWindow {
 	std::unique_ptr<data_loader> loader;
 	std::unique_ptr<cuboid_manager> cmngr;
 	std::unique_ptr<calibration_store> cstore;
+	std::unique_ptr<save_manager> smngr;
 	std::unique_ptr<camera_manager> media_manager;
 	data_variants current_data;
 	QString current_frame_id;

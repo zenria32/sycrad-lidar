@@ -13,14 +13,18 @@
 #include "orbital_camera.h"
 #include "data_clipper.h"
 #include "camera_manager.h"
+#include "save_manager.h"
+#include "annotation_importer.h"
 #include "ray.h"
 
 #include <QApplication>
+#include <QCloseEvent>
 #include <QDir>
 #include <QEvent>
 #include <QFileDialog>
 #include <QHeaderView>
 #include <QIcon>
+#include <QMessageBox>
 #include <QPixmap>
 #include <QScreen>
 #include <QShortcut>
@@ -72,6 +76,7 @@ main_window::main_window(QWidget *parent) : QMainWindow(parent) {
 	loader = std::make_unique<data_loader>(this);
 	cmngr = std::make_unique<cuboid_manager>(this);
 	cstore = std::make_unique<calibration_store>();
+	smngr = std::make_unique<save_manager>(this);
 	media_manager = std::make_unique<camera_manager>(this);
 
 	cstore->set_reporter([this](const QString &message) { notify(message, 3); });
@@ -95,6 +100,13 @@ main_window::main_window(QWidget *parent) : QMainWindow(parent) {
 		if (media_manager && project_loader && project_loader->is_project_name_valid()) {
 		media_manager->load_frame(project_loader->read_config(), current_frame_id);
 		}
+
+		if (smngr) {
+			smngr->set_point_cloud(&current_data);
+			smngr->set_frame_id(current_frame_id);
+		}
+
+		import_label();
 	});
 
 	connect(loader.get(), &data_loader::error, this, [this](const QString &message) {
@@ -105,6 +117,14 @@ main_window::main_window(QWidget *parent) : QMainWindow(parent) {
 	});
 
 	connect(project_loader.get(), &project_manager::error, this, [this](const QString &message) {
+		notify(message, 3);
+	});
+
+	connect(smngr.get(), &save_manager::save_succeed, this, [this](const QString &message) {
+		notify(message, 1);
+	});
+
+	connect(smngr.get(), &save_manager::save_failed, this, [this](const QString &message) {
 		notify(message, 3);
 	});
 
@@ -123,6 +143,21 @@ main_window::main_window(QWidget *parent) : QMainWindow(parent) {
 }
 
 main_window::~main_window() = default;
+
+void main_window::closeEvent(QCloseEvent *event) {
+	if (smngr && smngr->is_changed()) {
+		if (!smngr->save_if_changed()) {
+			auto result = QMessageBox::warning(this, QStringLiteral("Unsaved Changes"),
+				QStringLiteral("There are unsaved changes. Exit anyway?"),
+				QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+			if (result == QMessageBox::No) {
+				event->ignore();
+				return;
+			}
+		}
+	}
+	event->accept();
+}
 
 void main_window::load_qss() {
 	QFile style_file(":/style.qss");
@@ -196,8 +231,19 @@ void main_window::process_menubar() {
 
 	file_menu->addSeparator();
 
+	QAction *save_action = file_menu->addAction("Save All");
+	save_action->setShortcut(QKeySequence::Save);
+
+	file_menu->addSeparator();
+
 	connect(new_project, &QAction::triggered, this, &main_window::new_project);
 	connect(open_project, &QAction::triggered, this, &main_window::open_project);
+
+	connect(save_action, &QAction::triggered, this, [this]() {
+	if (smngr) {
+		smngr->save_current();
+	}
+});
 
 	if (cmngr) {
 		QAction *undo_action = cmngr->get_undo_stack()->createUndoAction(this, "Undo");
@@ -791,6 +837,11 @@ void main_window::new_project() {
 			} else if (cfg.format == "NuScenes" && !cfg.calibration_path.empty()) {
 				cstore->load_nuscenes_metadata(cfg.calibration_path);
 			}
+
+			if (smngr) {
+				smngr->set_dependencies(cmngr.get(), cstore.get(), &project_loader->read_config());
+			}
+
 			expand_explorer();
 		} else {
 			notify("Failed to create project.", 3);
@@ -813,6 +864,10 @@ void main_window::open_project() {
 			cstore->load_kitti_metadata(cfg.calibration_path);
 		} else if (cfg.format == "NuScenes" && !cfg.calibration_path.empty()) {
 			cstore->load_nuscenes_metadata(cfg.calibration_path);
+		}
+
+		if (smngr) {
+			smngr->set_dependencies(cmngr.get(), cstore.get(), &project_loader->read_config());
 		}
 
 		expand_explorer();
@@ -954,6 +1009,17 @@ void main_window::load_file(const QString &path) {
 		return;
 	}
 
+	if (smngr && smngr->is_changed()) {
+		if (!smngr->save_if_changed()) {
+			auto result = QMessageBox::warning(this, QStringLiteral("Unsaved Changes"),
+				QStringLiteral("There are unsaved changes. Continue without saving?"),
+				QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+			if (result == QMessageBox::No) {
+				return;
+			}
+		}
+	}
+
 	if (cmngr) {
 		cmngr->clear();
 		refresh_object_tree();
@@ -994,4 +1060,46 @@ bool main_window::eventFilter(QObject *object, QEvent *event) {
 		process_overlays();
 	}
 	return QMainWindow::eventFilter(object, event);
+}
+
+void main_window::import_label() {
+	if (!cmngr || !project_loader || !project_loader->is_project_name_valid()) {
+		return;
+	}
+
+	const auto &config = project_loader->read_config();
+	if (config.label_path.empty() || current_frame_id.isEmpty()) {
+		return;
+	}
+
+	const QString label_dir = QString::fromStdString(config.label_path);
+	const auto reporter = [this](const QString &message) { notify(message, 3); };
+
+	std::vector<cuboid> importing;
+
+	if (config.format == "KITTI") {
+		const QString label_file = label_dir + QStringLiteral("/") + current_frame_id + QStringLiteral(".txt");
+		if (!QFile::exists(label_file)) {
+			return;
+		}
+		importing = annotation_importer::import_kitti(label_file, cstore.get(), reporter);
+	} else if (config.format == "NuScenes") {
+		const QString label_file = label_dir + QStringLiteral("/") + current_frame_id + QStringLiteral(".json");
+		if (!QFile::exists(label_file)) {
+			return;
+		}
+		importing = annotation_importer::import_nuscenes(label_file, reporter);
+	} else {
+		return;
+	}
+
+	for (const auto &c : importing) {
+		cmngr->add_cuboid(c);
+	}
+
+	if (!importing.empty()) {
+		refresh_object_tree();
+		notify(QStringLiteral("Loaded %1 annotation(s) for frame %2.")
+			.arg(importing.size()).arg(current_frame_id), 1);
+	}
 }

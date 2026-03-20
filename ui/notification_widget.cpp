@@ -7,7 +7,7 @@ notification_widget::notification_widget(QWidget *parent) : QWidget(parent) {
 	setObjectName("notification_widget");
 	setAttribute(Qt::WA_TranslucentBackground, false);
 	setAttribute(Qt::WA_StyledBackground, true);
-	setFixedSize(300, 80);
+	setFixedSize(280, 75);
 	setVisible(false);
 
 	opacity = new QGraphicsOpacityEffect(this);

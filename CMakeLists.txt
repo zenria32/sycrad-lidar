@@ -121,6 +121,12 @@ set(DATA_SOURCE_CODE
         ${DATA_DIR}/cuboid_manager.cpp
         ${DATA_DIR}/data_clipper.h
         ${DATA_DIR}/data_clipper.cpp
+        ${DATA_DIR}/annotation_exporter.h
+        ${DATA_DIR}/annotation_exporter.cpp
+        ${DATA_DIR}/annotation_importer.h
+        ${DATA_DIR}/annotation_importer.cpp
+        ${DATA_DIR}/save_manager.h
+        ${DATA_DIR}/save_manager.cpp
 )
 
 set(RENDER_ENGINE_SOURCE_CODE

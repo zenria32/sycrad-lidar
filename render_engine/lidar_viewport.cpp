@@ -21,10 +21,6 @@
 #include <algorithm>
 #include <cmath>
 
-#ifndef PI
-#define PI 3.14159265358979323846
-#endif
-
 bool is_data_valid(const data_variants &data) {
 	bool valid = false;
 	std::visit(
@@ -558,7 +554,7 @@ void lidar_viewport::process_gizmo_drag(const QPointF &position) {
 		default: return;
 		}
 
-		const float degrees = delta_angle * 180.0f / static_cast<float>(PI);
+		const float degrees = delta_angle * 180.0f / static_cast<float>(M_PI);
 		cuboid updated = drag_snapshot;
 		updated.rotation = QQuaternion::fromAxisAndAngle(axis_vec, degrees) * drag_snapshot.rotation;
 		cmngr->update_cuboid_avoid_undo_stack(id, updated);
