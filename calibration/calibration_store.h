@@ -22,8 +22,7 @@ class calibration_store {
 
     bool is_loaded() const { return loaded; }
 
-    float get_lidar_ground_z(int data_format) const;
-    void set_kitti_ground_z(float z) { kitti_ground_z = z; }
+    float get_nuscenes_ground_z() const;
 
     QVector3D lidar_to_cam_position(const QVector3D &p) const;
     QVector3D lidar_to_rect_position(const QVector3D &p) const;
@@ -42,6 +41,5 @@ class calibration_store {
     kitti_calibration kitti;
     nuscenes_calibration nuscenes;
 
-    float kitti_ground_z = 0.0f;
     report_error reporter;
 };

@@ -28,9 +28,11 @@ class project_manager;
 class notification_widget;
 class camera_frame;
 class lidar_viewport;
+class orthographic_viewport;
 class statistics_widget;
 class cuboid_manager;
 class calibration_store;
+class camera_manager;
 
 class main_window : public QMainWindow {
 	Q_OBJECT
@@ -60,6 +62,8 @@ class main_window : public QMainWindow {
 	void expand_explorer();
 	void refresh_object_tree() const;
 
+	void update_orthographic_viewport();
+
 	void notify(const QString &message, int type = 0);
 
 	void load_file(const QString &path);
@@ -80,10 +84,11 @@ class main_window : public QMainWindow {
 	int tool_mode = -1;
 
 	QWidget *camera_container;
-	camera_frame *top_camera;
-	camera_frame *front_camera;
-	camera_frame *side_camera;
+	orthographic_viewport *orthographic_top = nullptr;
+	orthographic_viewport *orthographic_front = nullptr;
+	orthographic_viewport *orthographic_side = nullptr;
 	camera_frame *media_camera;
+	QLabel *media_placeholder = nullptr;
 
 	QTabWidget *object_container;
 
@@ -114,6 +119,7 @@ class main_window : public QMainWindow {
 	std::unique_ptr<data_loader> loader;
 	std::unique_ptr<cuboid_manager> cmngr;
 	std::unique_ptr<calibration_store> cstore;
+	std::unique_ptr<camera_manager> media_manager;
 	data_variants current_data;
 	QString current_frame_id;
 };

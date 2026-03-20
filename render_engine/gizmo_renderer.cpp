@@ -40,13 +40,13 @@ void gizmo_renderer::initialize(QRhi *rhi, QRhiRenderPassDescriptor *render_pass
 	for (int i = 0; i < 3; ++i) {
 		axis_uniform[i].reset(this->rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, uniform_size));
 		if (!axis_uniform[i]->create()) {
-			report(QStringLiteral("Gizmo renderer: axis uniform buffer creation failed."));
+			report(QStringLiteral("Gizmo axis uniform buffer creation failed."));
 			return;
 		}
 		axis_shader_resource[i].reset(this->rhi->newShaderResourceBindings());
 		axis_shader_resource[i]->setBindings({QRhiShaderResourceBinding::uniformBuffer(0, stages, axis_uniform[i].get())});
 		if (!axis_shader_resource[i]->create()) {
-			report(QStringLiteral("Gizmo renderer: axis SRB creation failed."));
+			report(QStringLiteral("Gizmo axis shader resource binding creation failed."));
 			return;
 		}
 	}
@@ -93,7 +93,7 @@ void gizmo_renderer::build_pipeline() {
 	pipeline->setRenderPassDescriptor(render_pass);
 
 	if (!pipeline->create()) {
-		report(QStringLiteral("Gizmo renderer: pipeline creation failed."));
+		report(QStringLiteral("Gizmo pipeline creation failed."));
 		pipeline.reset();
 	}
 }
@@ -322,13 +322,13 @@ void gizmo_renderer::upload_geometry() {
 
 	vertex_buffer.reset(rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, vertex_size));
 	if (!vertex_buffer->create()) {
-		report(QStringLiteral("Gizmo renderer: vertex buffer allocation failed."));
+		report(QStringLiteral("Gizmo vertex buffer allocation failed."));
 		return;
 	}
 
 	index_buffer.reset(rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::IndexBuffer, index_size));
 	if (!index_buffer->create()) {
-		report(QStringLiteral("Gizmo renderer: index buffer allocation failed."));
+		report(QStringLiteral("Gizmo index buffer allocation failed."));
 		return;
 	}
 

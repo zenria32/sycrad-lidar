@@ -14,7 +14,7 @@ report_error calibration_parser::reporter{};
 bool calibration_parser::read_kitti_matrix(const std::string &file_path, const std::string &key, float *output, int count) {
 	QFile file(QString::fromStdString(file_path));
 	if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-		report(QStringLiteral("Calibration parser: unable to open KITTI calibration file '%1'. "
+		report(QStringLiteral("Unable to open KITTI calibration file '%1'. "
 			"Verify the file exists and has appropriate read permissions.")
 			.arg(QString::fromStdString(file_path)));
 		return false;
@@ -30,7 +30,7 @@ bool calibration_parser::read_kitti_matrix(const std::string &file_path, const s
 		QString values = line.mid(static_cast<int>(key.size()) + 1).trimmed();
 		QStringList parts = values.split(' ', Qt::SkipEmptyParts);
 		if (parts.size() < count) {
-			report(QStringLiteral("Calibration parser: key '%1' in '%2' contains %3 values, "
+			report(QStringLiteral("Key '%1' in '%2' contains %3 values, "
 				"expected at least %4. The calibration file may be corrupted or incomplete.")
 				.arg(QString::fromStdString(key), QString::fromStdString(file_path))
 				.arg(parts.size())
@@ -42,7 +42,7 @@ bool calibration_parser::read_kitti_matrix(const std::string &file_path, const s
 			bool ok = false;
 			output[i] = parts[i].toFloat(&ok);
 			if (!ok) {
-				report(QStringLiteral("Calibration parser: non-numeric value at index %1 for key '%2' in '%3'. "
+				report(QStringLiteral("Non-numeric value at index %1 for key '%2' in '%3'. "
 					"Expected a floating-point number but found '%4'.")
 					.arg(i)
 					.arg(QString::fromStdString(key), QString::fromStdString(file_path), parts[i]));
@@ -52,7 +52,7 @@ bool calibration_parser::read_kitti_matrix(const std::string &file_path, const s
 		return true;
 	}
 
-	report(QStringLiteral("Calibration parser: key '%1' not found in '%2'. "
+	report(QStringLiteral("Key '%1' not found in '%2'. "
 		"The calibration file may be missing required entries.")
 		.arg(QString::fromStdString(key), QString::fromStdString(file_path)));
 	return false;
@@ -65,7 +65,7 @@ bool calibration_parser::parse_kitti_metadata(const std::string &calibration_dir
 	std::string cam_to_cam = (fs::path(calibration_dir) / "calib_cam_to_cam.txt").string();
 
 	if (!fs::exists(velo_to_cam) || !fs::exists(cam_to_cam)) {
-		report(QStringLiteral("Calibration parser: required KITTI calibration files not found in '%1'. "
+		report(QStringLiteral("Required KITTI calibration files not found in '%1'. "
 			"Expected 'calib_velo_to_cam.txt' and 'calib_cam_to_cam.txt' in the calibration directory.")
 			.arg(QString::fromStdString(calibration_dir)));
 		return false;
@@ -93,7 +93,7 @@ bool calibration_parser::parse_kitti_metadata(const std::string &calibration_dir
 bool calibration_parser::parse_sensor_json(const std::string &file_path, std::map<std::string, std::string> &token_to_channel) {
 	QFile file(QString::fromStdString(file_path));
 	if (!file.open(QIODevice::ReadOnly)) {
-		report(QStringLiteral("Calibration parser: unable to open nuScenes sensor file '%1'. "
+		report(QStringLiteral("Unable to open nuScenes sensor file '%1'. "
 			"Verify the file exists and has appropriate read permissions.")
 			.arg(QString::fromStdString(file_path)));
 		return false;
@@ -101,7 +101,7 @@ bool calibration_parser::parse_sensor_json(const std::string &file_path, std::ma
 
 	QJsonDocument document = QJsonDocument::fromJson(file.readAll());
 	if (!document.isArray()) {
-		report(QStringLiteral("Calibration parser: sensor file '%1' does not contain a valid JSON array. "
+		report(QStringLiteral("Sensor file '%1' does not contain a valid JSON array. "
 			"The file may be corrupted or in an unsupported format.")
 			.arg(QString::fromStdString(file_path)));
 		return false;
@@ -120,7 +120,7 @@ bool calibration_parser::parse_sensor_json(const std::string &file_path, std::ma
 bool calibration_parser::parse_calibrated_sensor_json(const std::string &file_path, const std::map<std::string, std::string> &token_to_channel, nuscenes_calibration &output) {
 	QFile file(QString::fromStdString(file_path));
 	if (!file.open(QIODevice::ReadOnly)) {
-		report(QStringLiteral("Calibration parser: unable to open nuScenes calibrated sensor file '%1'. "
+		report(QStringLiteral("Unable to open nuScenes calibrated sensor file '%1'. "
 			"Verify the file exists and has appropriate read permissions.")
 			.arg(QString::fromStdString(file_path)));
 		return false;
@@ -128,7 +128,7 @@ bool calibration_parser::parse_calibrated_sensor_json(const std::string &file_pa
 
 	QJsonDocument document = QJsonDocument::fromJson(file.readAll());
 	if (!document.isArray()) {
-		report(QStringLiteral("Calibration parser: calibrated sensor file '%1' does not contain a valid JSON array. "
+		report(QStringLiteral("Calibrated sensor file '%1' does not contain a valid JSON array. "
 			"The file may be corrupted or in an unsupported format.")
 			.arg(QString::fromStdString(file_path)));
 		return false;
@@ -193,7 +193,7 @@ bool calibration_parser::parse_nuscenes_metadata(const std::string &calibration_
 	std::string calibrated_sensor_path = (fs::path(calibration_dir) / "calibrated_sensor.json").string();
 
 	if (!fs::exists(sensor_path) || !fs::exists(calibrated_sensor_path)) {
-		report(QStringLiteral("Calibration parser: required nuScenes calibration files not found in '%1'. "
+		report(QStringLiteral("Required nuScenes calibration files not found in '%1'. "
 			"Expected 'sensor.json' and 'calibrated_sensor.json' in the calibration directory.")
 			.arg(QString::fromStdString(calibration_dir)));
 		return false;

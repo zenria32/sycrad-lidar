@@ -105,20 +105,20 @@ struct data {
 };
 
 struct kitti_data : data<4> {
+	float ground_level = 0.0f;
 	kitti_data() { format = data_format::kitti; }
 };
 
 struct las_data : data<4> {
 	coloration_format_for_las_pcd color_format = coloration_format_for_las_pcd::unknown;
 	float ground_level = 0.0f;
-
 	las_data() { format = data_format::las; }
 };
 
 struct nuscenes_data : data<5> {
 	float min_ring = std::numeric_limits<float>::max();
 	float max_ring = std::numeric_limits<float>::lowest();
-
+	float ground_level = 0.0f;
 	nuscenes_data() { format = data_format::nuscenes; }
 };
 
@@ -126,13 +126,12 @@ struct pcd_data : data<4> {
 	coloration_format_for_las_pcd color_format = coloration_format_for_las_pcd::unknown;
 	pcd_data_format pcd_format = pcd_data_format::unknown;
 	float ground_level = 0.0f;
-
 	pcd_data() { format = data_format::pcd; }
 };
 
 struct waymo_data : data<5> {
 	float min_elongation = std::numeric_limits<float>::max();
 	float max_elongation = std::numeric_limits<float>::lowest();
-
+	float ground_level = 0.0f;
 	waymo_data() { format = data_format::waymo; }
 };

@@ -117,7 +117,11 @@ void point_cloud_renderer::upload_data(data_variants data) {
 				active_format = pending_data->format;
 				data_ground_level = 0.0f;
 
-				if constexpr (std::is_same_v<T, std::shared_ptr<las_data>> || std::is_same_v<T, std::shared_ptr<pcd_data>>) {
+				if constexpr (std::is_same_v<T, std::shared_ptr<kitti_data>> ||
+					std::is_same_v<T, std::shared_ptr<las_data>> ||
+					std::is_same_v<T, std::shared_ptr<nuscenes_data>> ||
+					std::is_same_v<T, std::shared_ptr<pcd_data>> ||
+					std::is_same_v<T, std::shared_ptr<waymo_data>>) {
 					data_ground_level = pending_data->ground_level;
 				}
 
@@ -127,7 +131,7 @@ void point_cloud_renderer::upload_data(data_variants data) {
 		data);
 
 	if (!valid) {
-		report(QStringLiteral("Point cloud renderer: incoming data is invalid and will be ignored."));
+		report(QStringLiteral("Incoming point cloud data is invalid and will be ignored."));
 		return;
 	}
 
@@ -175,7 +179,7 @@ void point_cloud_renderer::build_pipeline(quint32 stride) {
 	const QShader frag = load_shader(QStringLiteral(":/shaders/point_cloud.frag.qsb"));
 
 	if (!vert.isValid() || !frag.isValid()) {
-		report(QStringLiteral("Point cloud renderer: shader load failed. "
+		report(QStringLiteral("Shader load failed. "
 			"Verify point cloud shader resources are included in the build."));
 		pipeline.reset();
 		return;
@@ -207,7 +211,7 @@ void point_cloud_renderer::build_pipeline(quint32 stride) {
 	pipeline->setRenderPassDescriptor(render_pass);
 
 	if (!pipeline->create()) {
-		report(QStringLiteral("Point cloud renderer: graphics pipeline creation failed."));
+		report(QStringLiteral("Graphics pipeline creation failed for point cloud rendering."));
 		pipeline.reset();
 		pipeline_stride = 0;
 	} else {
@@ -263,6 +267,7 @@ void point_cloud_renderer::upload_octree_data(spatial::octree tree) {
 	moctree = std::move(tree);
 
 	const auto index_count = static_cast<uint32_t>(moctree.point_indices.size());
+	octree_indices_size = moctree.point_indices.size() * sizeof(uint32_t);
 
 	if (index_count > 0) {
 		pending_index_upload = true;
@@ -296,7 +301,7 @@ void point_cloud_renderer::dispatch_cull_info(QRhiCommandBuffer *command_buffer,
 		if (!index_buffer || index_buffer_size != index_bytes) {
 			index_buffer.reset(rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::IndexBuffer, index_bytes));
 			if (!index_buffer->create()) {
-				report(QStringLiteral("Point cloud renderer: index buffer allocation failed."));
+				report(QStringLiteral("Index buffer allocation failed."));
 				return;
 			}
 			index_buffer_size = index_bytes;
@@ -318,7 +323,7 @@ void point_cloud_renderer::dispatch_cull_info(QRhiCommandBuffer *command_buffer,
 		draw_indexed_command_buffer.reset(rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::IndirectBuffer, alloc_bytes));
 
 		if (!draw_indexed_command_buffer->create()) {
-			report(QStringLiteral("Point cloud renderer: draw command buffer allocation failed."));
+			report(QStringLiteral("Draw command buffer allocation failed."));
 			draw_indexed_command_buffer.reset();
 			command_buffer_capacity = 0;
 			return;
@@ -355,7 +360,7 @@ void point_cloud_renderer::render(QRhiCommandBuffer *command_buffer, const QSize
 		if (!vertex_buffer || active_vertex_buffer_size != pending_byte_size) {
 			vertex_buffer.reset(rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, pending_byte_size));
 			if (!vertex_buffer->create()) {
-				report(QStringLiteral("Point cloud renderer: vertex buffer allocation failed."));
+				report(QStringLiteral("Vertex buffer allocation failed."));
 				return;
 			}
 			active_vertex_buffer_size = pending_byte_size;
@@ -403,10 +408,20 @@ point_cloud_renderer::get_memory_stats() const {
 	memory_stats stats;
 
 	if (vertex_buffer) {
-		stats.vram_data_size = active_vertex_buffer_size;
+		stats.vram_size += active_vertex_buffer_size;
 	}
-	
-	stats.ram_octree_size = moctree.nodes.size() * sizeof(spatial::octree_node) + moctree.point_indices.size() * sizeof(uint32_t);
-	
+	if (index_buffer) {
+		stats.vram_size += index_buffer_size;
+	}
+	if (draw_indexed_command_buffer) {
+		stats.vram_size += command_buffer_capacity * 20u;
+	}
+	if (uniform_buffer) {
+		stats.vram_size += uniform_size;
+	}
+
+	stats.octree_nodes_size = moctree.nodes.size() * sizeof(spatial::octree_node);
+	stats.ram_size = stats.octree_nodes_size + octree_indices_size;
+
 	return stats;
 }

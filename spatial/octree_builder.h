@@ -13,7 +13,7 @@ class octree_builder {
 	public:
 	static constexpr uint32_t DEFAULT_MAX_LEAF_POINTS = 4096;
 	static constexpr uint8_t DEFAULT_MAX_DEPTH = 14;
-	static constexpr uint32_t DEFAULT_INTERNAL_SAMPLES = 1024;
+	static constexpr uint32_t DEFAULT_INTERNAL_SAMPLES = 2048;
 
 	struct config {
 		uint32_t max_leaf_points = DEFAULT_MAX_LEAF_POINTS;

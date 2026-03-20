@@ -29,7 +29,7 @@ class statistics_widget : public QWidget {
 	static QString format_bytes(quint64 bytes);
 
 	static constexpr int widget_width = 210;
-	static constexpr int widget_height = 168;
+	static constexpr int widget_height = 184;
 	static constexpr int padding_left = 13;
 	static constexpr int padding_right = 13;
 	static constexpr int padding_top = 10;
@@ -62,19 +62,22 @@ class statistics_widget : public QWidget {
 
 	QStaticText memory_label{QStringLiteral("MEMORY")};
 
-	QStaticText data_size_variable{QStringLiteral("DATA")};
-	QStaticText algorithm_size_variable{QStringLiteral("ALGORITHM")};
+	QStaticText vram_variable{QStringLiteral("VRAM")};
+	QStaticText ram_variable{QStringLiteral("RAM")};
+	QStaticText total_variable{QStringLiteral("TOTAL")};
 
-	QStaticText data_size_value{QStringLiteral("\u2014")};
-	QStaticText algorithm_size_value{QStringLiteral("\u2014")};
+	QStaticText vram_value{QStringLiteral("\u2014")};
+	QStaticText ram_value{QStringLiteral("\u2014")};
+	QStaticText total_value{QStringLiteral("\u2014")};
 
 	QString last_api_value;
 	QString last_fps_value;
 	QString last_frametime_value;
 	QString last_resolution_value;
 	QString last_points_value;
-	QString last_data_size_value;
-	QString last_algorithm_size_value;
+	QString last_vram_value;
+	QString last_ram_value;
+	QString last_total_value;
 
 	lidar_viewport *viewport_ptr = nullptr;
 	QTimer timer;

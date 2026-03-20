@@ -12,7 +12,7 @@ class prepare_cmd_buffer {
 	public:
 	struct config {
 		float sse_threshold_pixels = 90.0f;
-		uint32_t max_points_budget = 10'000'000;
+		uint32_t max_points_budget = 12'000'000;
 	};
 
 	prepare_cmd_buffer() = default;

@@ -119,6 +119,8 @@ set(DATA_SOURCE_CODE
         ${DATA_DIR}/cuboid_commands.h
         ${DATA_DIR}/cuboid_manager.h
         ${DATA_DIR}/cuboid_manager.cpp
+        ${DATA_DIR}/data_clipper.h
+        ${DATA_DIR}/data_clipper.cpp
 )
 
 set(RENDER_ENGINE_SOURCE_CODE
@@ -143,6 +145,8 @@ set(RENDER_ENGINE_SOURCE_CODE
         ${RENDER_ENGINE_DIR}/cuboid_renderer.cpp
         ${RENDER_ENGINE_DIR}/gizmo_renderer.h
         ${RENDER_ENGINE_DIR}/gizmo_renderer.cpp
+        ${RENDER_ENGINE_DIR}/orthographic_viewport.h
+        ${RENDER_ENGINE_DIR}/orthographic_viewport.cpp
 )
 
 set(UI_SOURCE_CODE
@@ -162,6 +166,8 @@ set(UI_SOURCE_CODE
         ${UI_DIR}/statistics_widget.cpp
         ${UI_DIR}/loading_bar.h
         ${UI_DIR}/loading_bar.cpp
+        ${UI_DIR}/camera_manager.h
+        ${UI_DIR}/camera_manager.cpp
 )
 
 set(SPATIAL_SOURCE_CODE

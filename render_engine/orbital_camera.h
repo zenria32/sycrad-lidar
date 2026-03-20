@@ -15,7 +15,7 @@ class orbital_camera {
 	public:
 	static constexpr float orbit_sensitivity = 0.25f;
 	static constexpr float pan_scale = 0.002f;
-	static constexpr float zoom_step = 0.12f;
+	static constexpr float zoom_step = 0.15f;
 	static constexpr float default_fov = 60.0f;
 	static constexpr float default_yaw = -45.0f;
 	static constexpr float default_pitch = 30.0f;
@@ -68,7 +68,7 @@ class orbital_camera {
 	static constexpr QVector3D world_up() { return {0.0f, 0.0f, 1.0f}; }
 
 	static constexpr float distance_ratio = 1.2f;
-	static constexpr float min_distance_ratio = 0.01f;
+	static constexpr float min_distance_ratio = 0.002f;
 	static constexpr float max_distance_ratio = 5.0f;
 	static constexpr float near_draw_ratio = 0.0001f;
 	static constexpr float far_draw_ratio = 10.0f;
@@ -99,6 +99,7 @@ class orbital_camera {
 	QVector3D pan_max;
 	float min_distance = 0.1f;
 	float max_distance = 1000.0f;
+	float min_pan_scale = 0.0f;
 
 	QVector3D reset_target{0.0f, 0.0f, 0.0f};
 	float reset_yaw = default_yaw;

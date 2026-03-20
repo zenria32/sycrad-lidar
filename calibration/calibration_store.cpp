@@ -5,14 +5,14 @@
 
 bool calibration_store::load_kitti_metadata(const std::string &calibration_path) {
 	if (calibration_path.empty()) {
-		report(QStringLiteral("Calibration store: KITTI calibration path is empty. "
+		report(QStringLiteral("KITTI calibration path is empty. "
 			"Specify a valid calibration directory in the project settings."));
 		return false;
 	}
 
 	kitti = kitti_calibration{};
 	if (!calibration_parser::parse_kitti_metadata(calibration_path, kitti)) {
-		report(QString("Calibration store: failed to load KITTI calibration data from '%1'. "
+		report(QString("Failed to load KITTI calibration data from '%1'. "
 			"Check the calibration directory for missing or malformed files.")
 			.arg(QString::fromStdString(calibration_path)));
 		return false;
@@ -24,14 +24,14 @@ bool calibration_store::load_kitti_metadata(const std::string &calibration_path)
 
 bool calibration_store::load_nuscenes_metadata(const std::string &calibration_path) {
 	if (calibration_path.empty()) {
-		report(QStringLiteral("Calibration store: nuScenes calibration path is empty. "
+		report(QStringLiteral("NuScenes calibration path is empty. "
 			"Specify a valid calibration directory in the project settings."));
 		return false;
 	}
 
 	nuscenes = nuscenes_calibration{};
 	if (!calibration_parser::parse_nuscenes_metadata(calibration_path, nuscenes)) {
-		report(QString("Calibration store: failed to load nuScenes calibration data from '%1'. "
+		report(QString("Failed to load nuScenes calibration data from '%1'. "
 			"Check the calibration directory for missing or malformed files.")
 			.arg(QString::fromStdString(calibration_path)));
 		return false;
@@ -41,20 +41,12 @@ bool calibration_store::load_nuscenes_metadata(const std::string &calibration_pa
 	return true;
 }
 
-float calibration_store::get_lidar_ground_z(const int data_format) const {
-	switch (data_format) {
-		case 0:
-			return kitti_ground_z;
-		case 1: {
-			auto iterator = nuscenes.by_channel.find("LIDAR_TOP");
-			if (iterator != nuscenes.by_channel.end()) {
-				return -iterator->second.translation.z();
-			}
-			return 0.0f;
-		}
-		default:
-			return 0.0f;
+float calibration_store::get_nuscenes_ground_z() const {
+	auto iterator = nuscenes.by_channel.find("LIDAR_TOP");
+	if (iterator != nuscenes.by_channel.end()) {
+		return -iterator->second.translation.z();
 	}
+	return 0.0f;
 }
 
 const nuscenes_sensor_entry *calibration_store::get_sensor_entry(const std::string &channel) const {

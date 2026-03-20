@@ -53,8 +53,8 @@ void grid_renderer::render(QRhiCommandBuffer *command_buffer, const QSize &viewp
 	if (!vertex_buffer || vertex_buffer->size() < required_bytes) {
 		vertex_buffer.reset(rhi->newBuffer(QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, required_bytes));
 		if (!vertex_buffer->create()) {
-			report(QStringLiteral("Grid renderer: failed to allocate vertex buffer. "
-								  "The GPU may not have sufficient memory for the requested grid geometry."));
+			report(QStringLiteral("Failed to allocate grid vertex buffer. "
+				"The GPU may not have sufficient memory for the requested grid geometry."));
 			return;
 		}
 		vertex_buffer_uploaded = false;
@@ -115,8 +115,8 @@ void grid_renderer::build_pipeline() {
 	const QShader frag = load_shader(QStringLiteral(":/shaders/grid.frag.qsb"));
 
 	if (!vert.isValid() || !frag.isValid()) {
-		report(QStringLiteral("Grid renderer: one or more shader stages failed to load. "
-							  "The grid overlay will not be displayed until valid shaders are provided."));
+		report(QStringLiteral("One or more grid shader stages failed to load. "
+			"The grid overlay will not be displayed until valid shaders are provided."));
 		return;
 	}
 
@@ -148,8 +148,8 @@ void grid_renderer::build_pipeline() {
 	pipeline->setRenderPassDescriptor(render_pass);
 
 	if (!pipeline->create()) {
-		report(QStringLiteral("Grid renderer: graphics pipeline creation failed. "
-							  "This may indicate an incompatible shader configuration or unsupported render state for the current graphics API."));
+		report(QStringLiteral("Grid graphics pipeline creation failed. "
+			"This may indicate an incompatible shader configuration or unsupported render state for the current graphics API."));
 		pipeline.reset();
 	}
 }

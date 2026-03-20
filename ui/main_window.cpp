@@ -3,6 +3,7 @@
 #include "data_loader.h"
 #include "import_widget.h"
 #include "lidar_viewport.h"
+#include "orthographic_viewport.h"
 #include "notification_widget.h"
 #include "project_manager.h"
 #include "statistics_widget.h"
@@ -10,6 +11,8 @@
 #include "calibration_store.h"
 #include "input_handler.h"
 #include "orbital_camera.h"
+#include "data_clipper.h"
+#include "camera_manager.h"
 #include "ray.h"
 
 #include <QApplication>
@@ -69,6 +72,7 @@ main_window::main_window(QWidget *parent) : QMainWindow(parent) {
 	loader = std::make_unique<data_loader>(this);
 	cmngr = std::make_unique<cuboid_manager>(this);
 	cstore = std::make_unique<calibration_store>();
+	media_manager = std::make_unique<camera_manager>(this);
 
 	cstore->set_reporter([this](const QString &message) { notify(message, 3); });
 
@@ -87,6 +91,10 @@ main_window::main_window(QWidget *parent) : QMainWindow(parent) {
 			}
 		},
 			current_data);
+
+		if (media_manager && project_loader && project_loader->is_project_name_valid()) {
+		media_manager->load_frame(project_loader->read_config(), current_frame_id);
+		}
 	});
 
 	connect(loader.get(), &data_loader::error, this, [this](const QString &message) {
@@ -330,6 +338,10 @@ void main_window::process_viewport() {
 	connect(viewport, &lidar_viewport::error, this, [this](const QString &message) {
 		notify(message, 3);
 	});
+
+	if (viewport->get_input() && media_manager) {
+		media_manager->set_camera(viewport->get_camera());
+	}
 }
 
 void main_window::process_camera_menu() {
@@ -348,17 +360,81 @@ void main_window::process_camera_menu() {
 	camera_layout->setContentsMargins(2, 2, 2, 2);
 	camera_layout->setSpacing(2);
 
-	top_camera = new camera_frame("Top", camera_row);
-	front_camera = new camera_frame("Front", camera_row);
-	side_camera = new camera_frame("Side", camera_row);
+	auto *orthographic_view = new QWidget(camera_row);
+	orthographic_view->setObjectName("camera_frame");
+	orthographic_view->setAttribute(Qt::WA_StyledBackground, true);
+	orthographic_view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+	auto *orthographic_view_layout = new QVBoxLayout(orthographic_view);
+	orthographic_view_layout->setContentsMargins(0, 0, 0, 0);
+	orthographic_view_layout->setSpacing(0);
+
+	auto *orthographic_title_bar = new QWidget(orthographic_view);
+	orthographic_title_bar->setObjectName("camera_frame_title");
+	orthographic_title_bar->setFixedHeight(16);
+	orthographic_title_bar->setAttribute(Qt::WA_StyledBackground, true);
+
+	auto *orthographic_title_layout = new QHBoxLayout(orthographic_title_bar);
+	orthographic_title_layout->setContentsMargins(0, 0, 2, 0);
+
+	auto *orthographic_label = new QLabel("Orthographic", orthographic_title_bar);
+	orthographic_label->setObjectName("camera_frame_title_label");
+	orthographic_title_layout->addWidget(orthographic_label);
+	orthographic_view_layout->addWidget(orthographic_title_bar);
+
+	auto *orthographic_row = new QWidget(orthographic_view);
+	auto *orthographic_layout = new QHBoxLayout(orthographic_row);
+	orthographic_layout->setContentsMargins(0, 0, 0, 0);
+	orthographic_layout->setSpacing(2);
+
+	orthographic_top = new orthographic_viewport(orthographic_row);
+	orthographic_top->set_view_axis(orthographic_viewport::view_axis::top);
+	orthographic_layout->addWidget(orthographic_top);
+
+	orthographic_front = new orthographic_viewport(orthographic_row);
+	orthographic_front->set_view_axis(orthographic_viewport::view_axis::front);
+	orthographic_layout->addWidget(orthographic_front);
+
+	orthographic_side = new orthographic_viewport(orthographic_row);
+	orthographic_side->set_view_axis(orthographic_viewport::view_axis::side);
+	orthographic_layout->addWidget(orthographic_side);
+
+	orthographic_view_layout->addWidget(orthographic_row, 1);
+
 	media_camera = new camera_frame("Camera", camera_row);
 
-	camera_layout->addWidget(top_camera);
-	camera_layout->addWidget(front_camera);
-	camera_layout->addWidget(side_camera);
-	camera_layout->addWidget(media_camera);
+	media_placeholder = new QLabel(QStringLiteral("No Camera Data"), media_camera->content_widget());
+	media_placeholder->setObjectName("media_no_data_label");
+	media_placeholder->setAlignment(Qt::AlignCenter);
+	auto *media_layout = new QVBoxLayout(media_camera->content_widget());
+	media_layout->setContentsMargins(0, 0, 0, 0);
+	media_layout->addWidget(media_placeholder);
+
+	media_manager->set_media_display(media_placeholder);
+	media_manager->set_calibration_store(cstore.get());
+
+	camera_layout->addWidget(orthographic_view, 3);
+	camera_layout->addWidget(media_camera, 1);
 
 	camera_container_layout->addWidget(camera_row, 1);
+
+	if (cmngr) {
+		connect(cmngr.get(), &cuboid_manager::selected_cuboid_changed, this, [this](uint32_t, uint32_t) {
+			update_orthographic_viewport();
+		});
+
+		connect(cmngr.get(), &cuboid_manager::cuboid_updated, this, [this](uint32_t id) {
+			if (cmngr && cmngr->get_selected_id() == id) {
+				update_orthographic_viewport();
+			}
+		});
+
+		connect(cmngr.get(), &cuboid_manager::cleared, this, [this]() {
+			if (orthographic_top) orthographic_top->clear();
+			if (orthographic_front) orthographic_front->clear();
+			if (orthographic_side) orthographic_side->clear();
+		});
+	}
 }
 
 void main_window::process_object_menu() {
@@ -830,6 +906,48 @@ void main_window::notify(const QString &message, int type) {
 	}
 }
 
+void main_window::update_orthographic_viewport() {
+	if (!cmngr || !cmngr->has_anything_selected()) {
+		if (orthographic_top) orthographic_top->clear();
+		if (orthographic_front) orthographic_front->clear();
+		if (orthographic_side) orthographic_side->clear();
+		return;
+	}
+
+	if (std::holds_alternative<std::monostate>(current_data)) {
+		return;
+	}
+
+	const cuboid *c = cmngr->get_selected_cuboid();
+	if (!c) {
+		return;
+	}
+
+	const QVector3D clip_min = compute_clip_min(*c);
+	const QVector3D clip_max = compute_clip_max(*c);
+
+	clip_result clipped = clip_data(current_data, clip_min, clip_max);
+
+	if (clipped.point_count == 0) {
+		if (orthographic_top) orthographic_top->clear();
+		if (orthographic_front) orthographic_front->clear();
+		if (orthographic_side) orthographic_side->clear();
+		return;
+	}
+
+	auto set_orthographic_views = [&](orthographic_viewport *ov) {
+		if (ov) {
+			ov->set_data(clipped.vertices, static_cast<quint32>(clipped.point_count),
+				clipped.stride, clipped.min_intensity, clipped.max_intensity,
+				*c, clip_min, clip_max);
+		}
+	};
+
+	set_orthographic_views(orthographic_top);
+	set_orthographic_views(orthographic_front);
+	set_orthographic_views(orthographic_side);
+}
+
 void main_window::load_file(const QString &path) {
 	if (!project_loader || !project_loader->is_project_name_valid()) {
 		notify("No project is currently loaded. Please create or open a project first.", 2);
@@ -843,6 +961,11 @@ void main_window::load_file(const QString &path) {
 
 	current_data = std::monostate{};
 	current_frame_id = QFileInfo(path).baseName();
+
+	if (orthographic_top) orthographic_top->clear();
+	if (orthographic_front) orthographic_front->clear();
+	if (orthographic_side) orthographic_side->clear();
+	if (media_manager) media_manager->clear();
 
 	const auto &format = project_loader->read_config().format;
 	if (viewport) {

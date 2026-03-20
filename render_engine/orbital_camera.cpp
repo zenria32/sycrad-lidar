@@ -12,18 +12,18 @@ void orbital_camera::get_bounds(const QVector3D &bounds_min, const QVector3D &bo
 	const float diagonal = extent.length();
 
 	if (diagonal < 1e-6f) {
-		report(QStringLiteral(
-			"Unable to apply scene bounds, the bounding box diagonal is "
-			"approximately zero, "
-			"indicating an empty or degenerate point cloud dataset."));
+		report(QStringLiteral("Unable to apply scene bounds: bounding box diagonal is approximately zero, "
+			"indicating an empty or degenerate dataset."));
 		return;
 	}
 
 	near_draw = std::max(diagonal * near_draw_ratio, 0.01f);
 	far_draw = diagonal * far_draw_ratio;
 
-	min_distance = std::max(diagonal * min_distance_ratio, 0.05f);
+	min_distance = std::max(diagonal * min_distance_ratio, 0.025f);
 	max_distance = diagonal * max_distance_ratio;
+
+	min_pan_scale = diagonal * 0.000075f;
 
 	const QVector3D padding = {extent.x() * bounds_padding,
 		extent.y() * bounds_padding, 0.0f};
@@ -82,7 +82,7 @@ void orbital_camera::pan(float dx, float dy) {
 		z_backup_saved = false;
 	}
 
-	const float scale = distance * pan_scale;
+	const float scale = std::max(distance * pan_scale, min_pan_scale);
 
 	const QVector3D cam_right = right();
 	QVector3D cam_forward_xy = QVector3D::crossProduct(world_up(), cam_right);

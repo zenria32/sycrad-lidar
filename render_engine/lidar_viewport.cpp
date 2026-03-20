@@ -221,12 +221,10 @@ void lidar_viewport::setup_renderers() {
 		QVector3D bounds_min = render_point_cloud->bounds_min();
 		QVector3D bounds_max = render_point_cloud->bounds_max();
 
-		const auto data_type = render_point_cloud->get_data_type();
-		if (data_type == data_format::las || data_type == data_format::pcd) {
-			const float ground_level_bounds = render_point_cloud->get_ground_level();
-			bounds_min.setZ(ground_level_bounds);
-			bounds_max.setZ(ground_level_bounds);
-		}
+		const float ground_level_bounds = render_point_cloud->get_ground_level();
+		bounds_min.setZ(ground_level_bounds);
+		bounds_max.setZ(ground_level_bounds);
+
 		camera->get_bounds(bounds_min, bounds_max);
 	} else {
 		camera->get_bounds(render_grid->bounds_min(), render_grid->bounds_max());
@@ -304,24 +302,18 @@ void lidar_viewport::load_point_cloud(data_variants data) {
 				render_grid.reset();
 			}
 
+			const auto data_type = render_point_cloud->get_data_type();
 			if (camera && render_point_cloud->have_bounds()) {
 				QVector3D bounds_min = render_point_cloud->bounds_min();
 				QVector3D bounds_max = render_point_cloud->bounds_max();
 
-				const auto data_type = render_point_cloud->get_data_type();
-				if (data_type == data_format::las || data_type == data_format::pcd) {
-					const float ground_level_bounds = render_point_cloud->get_ground_level();
-					bounds_min.setZ(ground_level_bounds);
-					bounds_max.setZ(ground_level_bounds);
-				} else if (data_type == data_format::nuscenes && cstore && cstore->is_loaded()) {
-					ground_z = cstore->get_lidar_ground_z(1);
-				} else if (data_type == data_format::kitti) {
-					ground_z = render_point_cloud->bounds_min().z();
-					if (cstore) {
-						cstore->set_kitti_ground_z(ground_z);
-					}
-				} else if (data_type == data_format::waymo) {
-					ground_z = render_point_cloud->bounds_min().z();
+				const float ground_level_bounds = render_point_cloud->get_ground_level();
+				bounds_min.setZ(ground_level_bounds);
+				bounds_max.setZ(ground_level_bounds);
+				ground_z = ground_level_bounds;
+
+				if (data_type == data_format::nuscenes && cstore && cstore->is_loaded()) {
+					ground_z = cstore->get_nuscenes_ground_z();
 				}
 
 				camera->get_bounds(bounds_min, bounds_max);
@@ -387,7 +379,9 @@ void lidar_viewport::set_cuboid_manager(cuboid_manager *manager) {
 					new_cuboid.dimension = QVector3D(4.0f, 2.0f, 2.0f);
 					new_cuboid.rotation = QQuaternion();
 					new_cuboid.position = collision;
-					collision.setZ(this->ground_z + new_cuboid.dimension.z() * 0.5f);
+
+					collision.setZ(ground_z + new_cuboid.dimension.z() * 0.5f);
+
 					cmngr->add_cuboid(new_cuboid);
 				}
 			}
@@ -457,8 +451,8 @@ lidar_viewport::memory_info lidar_viewport::get_memory_info() const {
 	memory_info info;
 	if (render_point_cloud) {
 		auto stats = render_point_cloud->get_memory_stats();
-		info.vram_data_size = stats.vram_data_size;
-		info.ram_octree_size = stats.ram_octree_size;
+		info.vram_size = stats.vram_size;
+		info.ram_size = stats.ram_size;
 	}
 	return info;
 }

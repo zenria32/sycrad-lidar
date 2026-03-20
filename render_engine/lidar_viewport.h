@@ -53,8 +53,8 @@ class lidar_viewport : public QRhiWidget {
 	void hide_loading_overlay();
 
 	struct memory_info {
-		std::size_t vram_data_size = 0;
-		std::size_t ram_octree_size = 0;
+		std::size_t vram_size = 0;
+		std::size_t ram_size = 0;
 	};
 	memory_info get_memory_info() const;
 

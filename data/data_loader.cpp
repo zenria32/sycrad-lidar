@@ -261,8 +261,7 @@ float calculate_ground(const float *vertices, size_t point_count, size_t floats_
 			const size_t count = points_per_thread + (t < remaining ? 1 : 0);
 			const size_t end = begin + count;
 
-			workers.emplace_back([&thread_per_separator, vertices, floats_per_vertex,
-									 min_z, z_to_separator_index, max_index, begin, end, t]() {
+			workers.emplace_back([&thread_per_separator, vertices, floats_per_vertex, min_z, z_to_separator_index, max_index, begin, end, t]() {
 				auto &histogram = thread_per_separator[t].points_per_separator;
 				for (size_t i = begin; i < end; ++i) {
 					const float z = vertices[i * floats_per_vertex + 2];
@@ -412,6 +411,8 @@ std::shared_ptr<kitti_data> data_loader::kitti_loader(const QString &file_path) 
 		} }, [](bounds_calculator &b, const bounds_calculator &c) { b.merge_xyzi(c); }, merged);
 
 	merged.apply_xyzi(data.get());
+
+	data->ground_level = calculate_ground(reinterpret_cast<const float *>(data->mapped_ptr), data->point_count, 4, data->bounds.min_z, data->bounds.max_z);
 
 	return data;
 }
@@ -704,6 +705,8 @@ std::shared_ptr<nuscenes_data> data_loader::nuscenes_loader(const QString &file_
 
 	merged.apply_xyzi_e(data.get());
 
+	data->ground_level = calculate_ground(reinterpret_cast<const float *>(data->mapped_ptr), data->point_count, 5, data->bounds.min_z, data->bounds.max_z);
+
 	return data;
 }
 
@@ -765,6 +768,8 @@ std::shared_ptr<waymo_data> data_loader::waymo_loader(const QString &file_path) 
 		} }, [](bounds_calculator &b, const bounds_calculator &c) { b.merge_xyzi_e(c); }, merged);
 
 	merged.apply_xyzi_e(data.get());
+
+	data->ground_level = calculate_ground(reinterpret_cast<const float *>(data->mapped_ptr), data->point_count, 5, data->bounds.min_z, data->bounds.max_z);
 
 	return data;
 }

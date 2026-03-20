@@ -90,7 +90,7 @@ void cuboid_renderer::build_face_pipeline() {
 	const QShader frag = load_shader(QStringLiteral(":/shaders/cuboid.frag.qsb"));
 
 	if (!vert.isValid() || !frag.isValid()) {
-		report(QStringLiteral("Cuboid renderer: shader load failed for pipeline."));
+		report(QStringLiteral("Shader load failed for cuboid face pipeline."));
 		return;
 	}
 
@@ -125,7 +125,7 @@ void cuboid_renderer::build_face_pipeline() {
 	face_pipeline->setRenderPassDescriptor(render_pass);
 
 	if (!face_pipeline->create()) {
-		report(QStringLiteral("Cuboid renderer: face pipeline creation failed."));
+		report(QStringLiteral("Cuboid face pipeline creation failed."));
 		face_pipeline.reset();
 	}
 }
@@ -139,7 +139,7 @@ void cuboid_renderer::build_edge_pipeline() {
 	const QShader frag = load_shader(QStringLiteral(":/shaders/cuboid.frag.qsb"));
 
 	if (!vert.isValid() || !frag.isValid()) {
-		report(QStringLiteral("Cuboid renderer: shader load failed for edge pipeline."));
+		report(QStringLiteral("Shader load failed for cuboid edge pipeline."));
 		return;
 	}
 
@@ -171,7 +171,7 @@ void cuboid_renderer::build_edge_pipeline() {
 	edge_pipeline->setRenderPassDescriptor(render_pass);
 
 	if (!edge_pipeline->create()) {
-		report(QStringLiteral("Cuboid renderer: edge pipeline creation failed."));
+		report(QStringLiteral("Cuboid edge pipeline creation failed."));
 		edge_pipeline.reset();
 	}
 }
@@ -272,7 +272,7 @@ void cuboid_renderer::build_geometry() {
 		const quint32 alloc = vertex_bytes + vertex_bytes / 2 + 1024;
 		vertex_buffer.reset(rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::VertexBuffer, alloc));
 		if (!vertex_buffer->create()) {
-			report(QStringLiteral("Cuboid renderer: vertex buffer allocation failed."));
+			report(QStringLiteral("Cuboid vertex buffer allocation failed."));
 			return;
 		}
 		vertex_buffer_capacity = alloc;
@@ -282,7 +282,7 @@ void cuboid_renderer::build_geometry() {
 		const quint32 alloc = face_bytes + face_bytes / 2 + 256;
 		face_index_buffer.reset(rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::IndexBuffer, alloc));
 		if (!face_index_buffer->create()) {
-			report(QStringLiteral("Cuboid renderer: face index buffer allocation failed."));
+			report(QStringLiteral("Cuboid face index buffer allocation failed."));
 			return;
 		}
 		face_index_buffer_capacity = alloc;
@@ -292,7 +292,7 @@ void cuboid_renderer::build_geometry() {
 		const quint32 alloc = edge_bytes + edge_bytes / 2 + 256;
 		edge_index_buffer.reset(rhi->newBuffer(QRhiBuffer::Dynamic, QRhiBuffer::IndexBuffer, alloc));
 		if (!edge_index_buffer->create()) {
-			report(QStringLiteral("Cuboid renderer: edge index buffer allocation failed."));
+			report(QStringLiteral("Cuboid edge index buffer allocation failed."));
 			return;
 		}
 		edge_index_buffer_capacity = alloc;

@@ -40,8 +40,9 @@ class point_cloud_renderer final : public abstract_renderer {
 	QVector3D bounds_max() const { return data_bounds_max; }
 
 	struct memory_stats {
-		std::size_t vram_data_size = 0;
-		std::size_t ram_octree_size = 0;
+		std::size_t vram_size = 0;
+		std::size_t ram_size = 0;
+		std::size_t octree_nodes_size = 0;
 	};
 	memory_stats get_memory_stats() const;
 
@@ -88,6 +89,7 @@ class point_cloud_renderer final : public abstract_renderer {
 	std::unique_ptr<QRhiBuffer> index_buffer;
 	quint32 index_buffer_size = 0;
 	bool pending_index_upload = false;
+	std::size_t octree_indices_size = 0;
 
 	std::unique_ptr<QRhiBuffer> draw_indexed_command_buffer;
 	quint32 command_buffer_capacity = 0;

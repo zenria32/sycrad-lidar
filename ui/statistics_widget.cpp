@@ -38,24 +38,27 @@ statistics_widget::statistics_widget(QWidget *parent) : QWidget(parent) {
 	prepare_variables(resolution_variable);
 	prepare_variables(points_variable);
 	prepare_variables(memory_label);
-	prepare_variables(data_size_variable);
-	prepare_variables(algorithm_size_variable);
+	prepare_variables(vram_variable);
+	prepare_variables(ram_variable);
+	prepare_variables(total_variable);
 
 	prepare_values(api_value);
 	prepare_values(fps_value);
 	prepare_values(frametime_value);
 	prepare_values(resolution_value);
 	prepare_values(points_value);
-	prepare_values(data_size_value);
-	prepare_values(algorithm_size_value);
+	prepare_values(vram_value);
+	prepare_values(ram_value);
+	prepare_values(total_value);
 
 	last_api_value = api_value.text();
 	last_fps_value = fps_value.text();
 	last_frametime_value = frametime_value.text();
 	last_resolution_value = resolution_value.text();
 	last_points_value = points_value.text();
-	last_data_size_value = data_size_value.text();
-	last_algorithm_size_value = algorithm_size_value.text();
+	last_vram_value = vram_value.text();
+	last_ram_value = ram_value.text();
+	last_total_value = total_value.text();
 
 	timer.setInterval(update_interval);
 	connect(&timer, &QTimer::timeout, this, &statistics_widget::update_stats);
@@ -147,11 +150,14 @@ void statistics_widget::update_stats() {
 		}
 	};
 
-	const QString data_size_str = format_bytes(mem_info.vram_data_size);
-	update_value(data_size_str, last_data_size_value, data_size_value);
-	
-	const QString algorithm_size_str = format_bytes(mem_info.ram_octree_size);
-	update_value(algorithm_size_str, last_algorithm_size_value, algorithm_size_value);
+	const QString vram_str = format_bytes(mem_info.vram_size);
+	update_value(vram_str, last_vram_value, vram_value);
+
+	const QString ram_str = format_bytes(mem_info.ram_size);
+	update_value(ram_str, last_ram_value, ram_value);
+
+	const QString total_str = format_bytes(mem_info.vram_size + mem_info.ram_size);
+	update_value(total_str, last_total_value, total_value);
 
 	update();
 }
@@ -204,7 +210,9 @@ void statistics_widget::paintEvent(QPaintEvent *) {
 	painter.drawStaticText(padding_left, y + 1, memory_label);
 	y += row_height;
 
-	draw_row(y, data_size_variable, data_size_value);
+	draw_row(y, vram_variable, vram_value);
 	y += row_height;
-	draw_row(y, algorithm_size_variable, algorithm_size_value);
+	draw_row(y, ram_variable, ram_value);
+	y += row_height;
+	draw_row(y, total_variable, total_value);
 }
