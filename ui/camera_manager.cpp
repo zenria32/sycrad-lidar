@@ -109,9 +109,11 @@ void camera_manager::resolve_channels(const project_config &config, const QStrin
 		};
 
 		QString scene_token = frame_id;
+		qint64 timestamp = 0;
 		const int index_of_lidar_word = frame_id.indexOf("__LIDAR_TOP__");
 		if (index_of_lidar_word > 0) {
 			scene_token = frame_id.left(index_of_lidar_word);
+			timestamp = frame_id.mid(index_of_lidar_word + 13).toLongLong();
 		}
 
 		for (const auto &[angle, direction] : cam_angles) {
@@ -120,7 +122,15 @@ void camera_manager::resolve_channels(const project_config &config, const QStrin
 			if (cstore && cstore->is_loaded()) {
 				const auto *entry = cstore->get_sensor_entry(angle);
 				if (entry) {
-					dir = entry->rotation.rotatedVector(QVector3D(1, 0, 0));
+					QVector3D ego_dir = entry->rotation.rotatedVector(QVector3D(0, 0, 1));
+
+					const auto *lidar_entry = cstore->get_sensor_entry("LIDAR_TOP");
+					if (lidar_entry) {
+						dir = lidar_entry->rotation.conjugated().rotatedVector(ego_dir);
+					} else {
+						dir = ego_dir;
+					}
+
 					dir.setZ(0);
 					const float len = dir.length();
 					if (len > 1e-6f) {
@@ -133,7 +143,7 @@ void camera_manager::resolve_channels(const project_config &config, const QStrin
 
 			const QString prefix = scene_token + "__" + QString::fromStdString(angle) + "__";
 
-			// serach directories will be expanded
+			// search directories will be expanded
 			const QStringList search_dirs = { media + "/" + QString::fromStdString(angle) };
 
 			QString found_path;
@@ -143,9 +153,25 @@ void camera_manager::resolve_channels(const project_config &config, const QStrin
 					continue;
 				}
 				const QStringList matches = cam_dir.entryList({prefix + "*"}, QDir::Files);
-				if (!matches.isEmpty()) {
+				if (timestamp == 0 || matches.size() == 1) {
 					found_path = cam_dir.absoluteFilePath(matches.first());
-					break;
+				} else {
+					qint64 lowest_difference = std::numeric_limits<qint64>::max();
+					for (const auto &match : matches) {
+						const QString stem = QFileInfo(match).baseName();
+						const int timestamp_index = stem.lastIndexOf("__");
+						if (timestamp_index < 0) {
+							continue;
+						}
+
+						const qint64 cam_timestamp = stem.mid(timestamp_index + 2).toLongLong();
+						const qint64 difference = std::abs(cam_timestamp - timestamp);
+
+						if (difference < lowest_difference) {
+							lowest_difference = difference;
+							found_path = cam_dir.absoluteFilePath(match);
+						}
+					}
 				}
 			}
 
@@ -171,16 +197,12 @@ QString camera_manager::resolve_channel_direction() {
 
 	const QVector3D target = camera->get_target();
 	QVector3D view_direction(target.x(), target.y(), 0.0f);
-	float len = view_direction.length();
+	const float len = view_direction.length();
 
-	if (len < 1.0f) {
-		const QVector3D fwd = camera->forward();
-		view_direction = QVector3D(fwd.x(), fwd.y(), 0.0f);
-		len = view_direction.length();
-		if (len < 1e-6f) {
-			return QString::fromStdString(channels.front().name);
-		}
+	if (len < 1e-6f) {
+		return QString::fromStdString(channels.front().name);
 	}
+
 	view_direction /= len;
 
 	float best_dot = -2.0f;
