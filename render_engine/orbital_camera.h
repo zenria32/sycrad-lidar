@@ -14,8 +14,8 @@ using report_error = std::function<void(const QString &message)>;
 class orbital_camera {
 	public:
 	static constexpr float orbit_sensitivity = 0.25f;
-	static constexpr float pan_scale = 0.002f;
-	static constexpr float zoom_step = 0.15f;
+	static constexpr float pan_scale = 0.00225f;
+	static constexpr float zoom_step = 0.18f;
 	static constexpr float default_fov = 60.0f;
 	static constexpr float default_yaw = -45.0f;
 	static constexpr float default_pitch = 30.0f;
@@ -27,9 +27,7 @@ class orbital_camera {
 	orbital_camera(const orbital_camera &) = default;
 	orbital_camera &operator=(const orbital_camera &) = default;
 
-	void set_reporter(report_error error_handler) {
-		reporter = std::move(error_handler);
-	}
+	void set_reporter(report_error error_handler) { reporter = std::move(error_handler); }
 
 	void get_bounds(const QVector3D &bounds_min, const QVector3D &bounds_max);
 

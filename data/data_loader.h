@@ -9,7 +9,6 @@
 #include <atomic>
 #include <memory>
 #include <string>
-#include <thread>
 #include <variant>
 
 using data_variants = std::variant<

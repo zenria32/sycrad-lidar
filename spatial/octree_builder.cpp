@@ -1,5 +1,8 @@
 #include "octree_builder.h"
 
+#include <QtConcurrent>
+
+#include <array>
 #include <cassert>
 #include <cstring>
 #include <limits>
@@ -8,10 +11,21 @@
 namespace spatial {
 
 octree octree_builder::build(const float *x, const float *y, const float *z, uint32_t point_count) {
-	octree tree;
 	if (point_count == 0) {
-		return tree;
+		return {};
 	}
+
+	std::vector<uint32_t> scratch(point_count);
+	std::iota(scratch.begin(), scratch.end(), 0u);
+
+	float root_min[3], root_max[3];
+	compute_aabb(x, y, z, scratch.data(), scratch.data() + point_count, root_min, root_max);
+
+	if (point_count >= MULTITHREAD_THRESHOLD) {
+		return multithread_build(x, y, z, point_count, scratch, root_min, root_max);
+	}
+
+	octree tree;
 
 	tree.nodes.reserve(point_count / (mcfg.max_leaf_points / 2));
 	tree.point_indices.reserve(point_count);
@@ -23,13 +37,165 @@ octree octree_builder::build(const float *x, const float *y, const float *z, uin
 	context.tree = &tree;
 	context.rng = std::mt19937(mcfg.rng_seed);
 
-	context.scratch.resize(point_count);
-	std::iota(context.scratch.begin(), context.scratch.end(), 0u);
-
-	float root_min[3], root_max[3];
-	compute_aabb(x, y, z, context.scratch.data(), context.scratch.data() + point_count, root_min, root_max);
+	context.scratch = std::move(scratch);
 
 	build_node(context, context.scratch.data(), context.scratch.data() + point_count, root_min, root_max, 0);
+
+	tree.nodes.shrink_to_fit();
+	tree.point_indices.shrink_to_fit();
+	return tree;
+}
+
+octree octree_builder::multithread_build(const float *x, const float *y, const float *z, uint32_t point_count, std::vector<uint32_t> &scratch,
+	const float root_min[3], const float root_max[3]) {
+
+	uint32_t *base = scratch.data();
+
+	const float mid[3] = {
+		(root_min[0] + root_max[0]) * 0.5f,
+		(root_min[1] + root_max[1]) * 0.5f,
+		(root_min[2] + root_max[2]) * 0.5f,
+	};
+
+	uint32_t counts[8] = {};
+	for (uint32_t index = 0; index < point_count; ++index) {
+		const uint32_t i = base[index];
+		const int oct = ((x[i] >= mid[0]) ? 1 : 0) | ((y[i] >= mid[1]) ? 2 : 0) | ((z[i] >= mid[2]) ? 4 : 0);
+		++counts[oct];
+	}
+
+	uint32_t offsets[9] = {};
+	for (int i = 0; i < 8; ++i) {
+		offsets[i + 1] = offsets[i] + counts[i];
+	}
+
+	std::vector<uint32_t> temp(point_count);
+	uint32_t pos[8];
+	for (int i = 0; i < 8; ++i) {
+		pos[i] = offsets[i];
+	}
+	for (uint32_t index = 0; index < point_count; ++index) {
+		const uint32_t i = base[index];
+		const int oct = ((x[i] >= mid[0]) ? 1 : 0) | ((y[i] >= mid[1]) ? 2 : 0) | ((z[i] >= mid[2]) ? 4 : 0);
+		temp[pos[oct]++] = i;
+	}
+	std::memcpy(base, temp.data(), point_count * sizeof(uint32_t));
+	temp.clear();
+	temp.shrink_to_fit();
+
+	struct subtree_result {
+		octree tree;
+		int octant;
+	};
+
+	QThreadPool pool;
+	std::vector<QFuture<subtree_result>> futures;
+	futures.reserve(8);
+
+	for (int i = 0; i < 8; ++i) {
+		if (counts[i] == 0) {
+			continue;
+		}
+
+		uint32_t *oct_begin = base + offsets[i];
+		uint32_t *oct_end = base + offsets[i + 1];
+
+		float oct_min[3], oct_max[3];
+		compute_aabb(x, y, z, oct_begin, oct_end, oct_min, oct_max);
+
+		const std::array<float, 3> mins = {oct_min[0], oct_min[1], oct_min[2]};
+		const std::array<float, 3> maxs = {oct_max[0], oct_max[1], oct_max[2]};
+
+		futures.push_back(QtConcurrent::run(&pool, [this, x, y, z, oct_begin, oct_end, mins, maxs, i]() -> subtree_result {
+			const auto sub_tree_count = static_cast<uint32_t>(oct_end - oct_begin);
+			octree sub_tree;
+			sub_tree.nodes.reserve(sub_tree_count / (mcfg.max_leaf_points / 2));
+			sub_tree.point_indices.reserve(sub_tree_count);
+
+			build_context context;
+			context.x = x;
+			context.y = y;
+			context.z = z;
+			context.tree = &sub_tree;
+			context.rng = std::mt19937(mcfg.rng_seed + static_cast<uint32_t>(i) + 1);
+
+			float node_min[3] = {mins[0], mins[1], mins[2]};
+			float node_max[3] = {maxs[0], maxs[1], maxs[2]};
+
+			build_node(context, oct_begin, oct_end, node_min, node_max, 1);
+
+			sub_tree.nodes.shrink_to_fit();
+			sub_tree.point_indices.shrink_to_fit();
+			return {std::move(sub_tree), i};
+		}));
+	}
+
+	std::vector<subtree_result> results;
+	results.reserve(futures.size());
+
+	uint32_t total_nodes = 1;
+	uint32_t total_indices = 0;
+	for (auto &f : futures) {
+		results.push_back(f.takeResult());
+		total_nodes += static_cast<uint32_t>(results.back().tree.nodes.size());
+		total_indices += static_cast<uint32_t>(results.back().tree.point_indices.size());
+	}
+	total_indices += std::min(point_count, mcfg.internal_samples);
+
+	octree tree;
+	tree.nodes.reserve(total_nodes);
+	tree.point_indices.reserve(total_indices);
+
+	tree.nodes.push_back(octree_node{});
+
+	int32_t child_indices[8];
+	for (int &ci : child_indices) {
+		ci = -1;
+	}
+
+	for (auto &result : results) {
+		const auto node_offset = static_cast<int32_t>(tree.nodes.size());
+		const auto index_offset = static_cast<uint32_t>(tree.point_indices.size());
+
+		for (auto &node : result.tree.nodes) {
+			node.first_index += index_offset;
+			for (int32_t &child : node.children) {
+				if (child >= 0) {
+					child += node_offset;
+				}
+			}
+		}
+
+		tree.nodes.insert(tree.nodes.end(), std::make_move_iterator(result.tree.nodes.begin()), std::make_move_iterator(result.tree.nodes.end()));
+		tree.point_indices.insert(tree.point_indices.end(), result.tree.point_indices.begin(), result.tree.point_indices.end());
+
+		child_indices[result.octant] = node_offset;
+	}
+
+	build_context root_context;
+	root_context.x = x;
+	root_context.y = y;
+	root_context.z = z;
+	root_context.tree = &tree;
+	root_context.rng = std::mt19937(mcfg.rng_seed);
+
+	const uint32_t root_first_index = append_sample(root_context, base, base + point_count, mcfg.internal_samples);
+	const uint32_t root_point_count = static_cast<uint32_t>(tree.point_indices.size()) - root_first_index;
+
+	octree_node &root = tree.nodes[0];
+	root.aabb_min[0] = root_min[0];
+	root.aabb_min[1] = root_min[1];
+	root.aabb_min[2] = root_min[2];
+	root.aabb_max[0] = root_max[0];
+	root.aabb_max[1] = root_max[1];
+	root.aabb_max[2] = root_max[2];
+	root.depth = 0;
+	root.is_leaf = false;
+	root.first_index = root_first_index;
+	root.point_count = root_point_count;
+	for (int i = 0; i < 8; ++i) {
+		root.children[i] = child_indices[i];
+	}
 
 	tree.nodes.shrink_to_fit();
 	tree.point_indices.shrink_to_fit();

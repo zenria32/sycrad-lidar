@@ -11,8 +11,9 @@
 class prepare_cmd_buffer {
 	public:
 	struct config {
-		float sse_threshold_pixels = 90.0f;
-		uint32_t max_points_budget = 12'000'000;
+		float sse_threshold_pixels = 50.0f;
+		// Will be used for change the LOD calculation parameter from ui
+		float sse_threshold_offset = 0.0f;
 	};
 
 	prepare_cmd_buffer() = default;
@@ -35,7 +36,6 @@ class prepare_cmd_buffer {
 		const spatial::octree_node *nodes;
 		plane planes[6];
 		float sse_factor;
-		uint32_t *budget;
 	};
 
 	static void extract_frustum_planes(const QMatrix4x4 &vp, plane out[6]);

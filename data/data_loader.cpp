@@ -134,22 +134,20 @@ struct bounds_calculator {
 
 template <typename range, typename merge>
 void multi_thread(size_t total_point_count, range &&process_range, merge &&local_merge, bounds_calculator &calculator) {
-	const unsigned int hardware_threads = std::thread::hardware_concurrency();
-	const unsigned int max_threads = (hardware_threads > 0) ? hardware_threads : 4;
-
 	if (total_point_count < 1000000) {
 		process_range(0, total_point_count, calculator);
 		return;
 	}
 
-	const unsigned int worker_thread_count = max_threads;
+	QThreadPool pool;
+	const int worker_thread_count = pool.maxThreadCount();
 
 	struct alignas(64) aligned_bounds {
 		bounds_calculator calculator;
 	};
 
 	std::vector<aligned_bounds> per_thread(worker_thread_count);
-	std::vector<std::thread> worker_threads;
+	std::vector<QFuture<void>> worker_threads;
 	worker_threads.reserve(worker_thread_count);
 
 	const size_t points_per_thread = total_point_count / worker_thread_count;
@@ -157,30 +155,18 @@ void multi_thread(size_t total_point_count, range &&process_range, merge &&local
 
 	size_t begin_index = 0;
 
-	try {
-		for (unsigned int thread_index = 0; thread_index < worker_thread_count; ++thread_index) {
-			size_t count = points_per_thread + (thread_index < remaining_points ? 1 : 0);
-			size_t end_index = begin_index + count;
+	for (int thread_index = 0; thread_index < worker_thread_count; ++thread_index) {
+		size_t count = points_per_thread + (static_cast<size_t>(thread_index) < remaining_points ? 1 : 0);
+		size_t end_index = begin_index + count;
 
-			worker_threads.emplace_back([&, begin_index, end_index, thread_index]() {
-				process_range(begin_index, end_index, per_thread[thread_index].calculator);
-			});
+		worker_threads.push_back(QtConcurrent::run(&pool, [&, begin_index, end_index, thread_index]() {
+			process_range(begin_index, end_index, per_thread[thread_index].calculator);}));
 
-			begin_index = end_index;
-		}
-	} catch (...) {
-		for (auto &thread : worker_threads) {
-			if (thread.joinable()) {
-				thread.join();
-			}
-		}
-		throw;
+		begin_index = end_index;
 	}
 
 	for (auto &thread : worker_threads) {
-		if (thread.joinable()) {
-			thread.join();
-		}
+		thread.waitForFinished();
 	}
 
 	for (const auto &local : per_thread) {
@@ -245,51 +231,41 @@ float calculate_ground(const float *vertices, size_t point_count, size_t floats_
 		return min_z + (static_cast<float>(ground_peak) + 0.5f) * range / static_cast<float>(z_range_separator_count);
 	}
 
-	const unsigned int hardware_threads = std::thread::hardware_concurrency();
-	const unsigned int thread_count = (hardware_threads > 0) ? hardware_threads : 4;
+	QThreadPool pool;
+	const int thread_count = pool.maxThreadCount();
 
 	std::vector<bounds_z> thread_per_separator(thread_count);
-	std::vector<std::thread> workers;
-	workers.reserve(thread_count);
+	std::vector<QFuture<void>> worker_threads;
+	worker_threads.reserve(thread_count);
 
 	const size_t points_per_thread = point_count / thread_count;
 	const size_t remaining = point_count % thread_count;
 	size_t begin = 0;
 
-	try {
-		for (unsigned int t = 0; t < thread_count; ++t) {
-			const size_t count = points_per_thread + (t < remaining ? 1 : 0);
-			const size_t end = begin + count;
+	for (int t = 0; t < thread_count; ++t) {
+		const size_t count = points_per_thread + (static_cast<size_t>(t) < remaining ? 1 : 0);
+		const size_t end = begin + count;
 
-			workers.emplace_back([&thread_per_separator, vertices, floats_per_vertex, min_z, z_to_separator_index, max_index, begin, end, t]() {
-				auto &histogram = thread_per_separator[t].points_per_separator;
-				for (size_t i = begin; i < end; ++i) {
-					const float z = vertices[i * floats_per_vertex + 2];
-					int separator_index = static_cast<int>((z - min_z) * z_to_separator_index);
+		worker_threads.push_back(QtConcurrent::run(&pool, [&thread_per_separator, vertices, floats_per_vertex, min_z, z_to_separator_index, max_index, begin, end, t]() {
+			auto &histogram = thread_per_separator[t].points_per_separator;
+			for (size_t i = begin; i < end; ++i) {
+				const float z = vertices[i * floats_per_vertex + 2];
+				int separator_index = static_cast<int>((z - min_z) * z_to_separator_index);
 
-					if (separator_index < 0) {
-						separator_index = 0;
-					} else if (separator_index > max_index) {
-						separator_index = max_index;
-					}
-
-					++histogram[separator_index];
+				if (separator_index < 0) {
+					separator_index = 0;
+				} else if (separator_index > max_index) {
+					separator_index = max_index;
 				}
-			});
 
-			begin = end;
-		}
-	} catch (...) {
-		for (auto &w : workers) {
-			if (w.joinable()) {
-				w.join();
-			}
-		}
-		throw;
+				++histogram[separator_index];
+			}}));
+
+		begin = end;
 	}
 
-	for (auto &w : workers) {
-		w.join();
+	for (auto &thread : worker_threads) {
+		thread.waitForFinished();
 	}
 
 	uint64_t merged[z_range_separator_count] = {};
@@ -493,8 +469,8 @@ std::shared_ptr<las_data> data_loader::las_loader(const QString &file_path) {
 		las_reader->close();
 		las_reader.reset();
 
-		const unsigned int hardware_threads = std::thread::hardware_concurrency();
-		const unsigned int thread_count = (hardware_threads > 0) ? hardware_threads : 4;
+		QThreadPool pool;
+		const int thread_count = pool.maxThreadCount();
 
 		struct alignas(64) aligned_intensity {
 			float min_intensity = std::numeric_limits<float>::max();
@@ -508,7 +484,7 @@ std::shared_ptr<las_data> data_loader::las_loader(const QString &file_path) {
 			per_thread.resize(thread_count);
 		}
 
-		std::vector<std::thread> worker_threads;
+		std::vector<QFuture<void>> worker_threads;
 		worker_threads.reserve(thread_count);
 
 		const size_t points_per_thread = point_count / thread_count;
@@ -519,85 +495,73 @@ std::shared_ptr<las_data> data_loader::las_loader(const QString &file_path) {
 
 		size_t begin = 0;
 
-		try {
-			for (unsigned int t = 0; t < thread_count; ++t) {
-				const size_t count = points_per_thread + (t < remaining ? 1 : 0);
-				const size_t end = begin + count;
+		for (int t = 0; t < thread_count; ++t) {
+			const size_t count = points_per_thread + (static_cast<size_t>(t) < remaining ? 1 : 0);
+			const size_t end = begin + count;
 
-				worker_threads.emplace_back([&per_thread, output_ptr, &path_str,
-												world_x, world_y, world_z,
-												has_rgb, begin, end, t]() {
-					LASreadOpener las_thread_reader;
-					las_thread_reader.set_file_name(path_str.c_str());
+			worker_threads.push_back(QtConcurrent::run(&pool, [&per_thread, output_ptr, &path_str,
+				world_x, world_y, world_z, has_rgb, begin, end, t]() {
+				LASreadOpener las_thread_reader;
+				las_thread_reader.set_file_name(path_str.c_str());
 
-					auto thread_destructor = [](LASreader *las) { if (las) { las->close(); delete las; } };
-					std::unique_ptr<LASreader, decltype(thread_destructor)>
-						reader(las_thread_reader.open(), thread_destructor);
+				auto thread_destructor = [](LASreader *las) { if (las) { las->close(); delete las; } };
+				std::unique_ptr<LASreader, decltype(thread_destructor)>
+				reader(las_thread_reader.open(), thread_destructor);
 
-					if (!reader) {
-						return;
-					}
+				if (!reader) {
+					return;
+				}
 
-					reader->seek(static_cast<I64>(begin));
+				reader->seek(static_cast<I64>(begin));
 
-					if (has_rgb) {
-						for (size_t i = begin; i < end; ++i) {
-							if (!reader->read_point()) {
-								break;
-							}
-							const LASpoint &las_point = reader->point;
-
-							const auto x = static_cast<float>(las_point.get_x() - world_x);
-							const auto y = static_cast<float>(las_point.get_y() - world_y);
-							const auto z = static_cast<float>(las_point.get_z() - world_z);
-
-							const size_t index = i * 4;
-							output_ptr[index + 0] = x;
-							output_ptr[index + 1] = y;
-							output_ptr[index + 2] = z;
-							output_ptr[index + 3] = rgb_validation(las_point.get_R(), las_point.get_G(), las_point.get_B());
+				if (has_rgb) {
+					for (size_t i = begin; i < end; ++i) {
+						if (!reader->read_point()) {
+							break;
 						}
-					} else {
-						auto &intensity_bounds = per_thread[t];
+						const LASpoint &las_point = reader->point;
 
-						for (size_t i = begin; i < end; ++i) {
-							if (!reader->read_point()) {
-								break;
-							}
-							const LASpoint &las_point = reader->point;
+						const auto x = static_cast<float>(las_point.get_x() - world_x);
+						const auto y = static_cast<float>(las_point.get_y() - world_y);
+						const auto z = static_cast<float>(las_point.get_z() - world_z);
 
-							const auto x = static_cast<float>(las_point.get_x() - world_x);
-							const auto y = static_cast<float>(las_point.get_y() - world_y);
-							const auto z = static_cast<float>(las_point.get_z() - world_z);
-							const auto intensity = static_cast<float>(las_point.get_intensity());
-
-							const size_t index = i * 4;
-							output_ptr[index + 0] = x;
-							output_ptr[index + 1] = y;
-							output_ptr[index + 2] = z;
-							output_ptr[index + 3] = intensity;
-
-							intensity_bounds.min_intensity = std::min(intensity_bounds.min_intensity, intensity);
-							intensity_bounds.max_intensity = std::max(intensity_bounds.max_intensity, intensity);
-						}
+						const size_t index = i * 4;
+						output_ptr[index + 0] = x;
+						output_ptr[index + 1] = y;
+						output_ptr[index + 2] = z;
+						output_ptr[index + 3] = rgb_validation(las_point.get_R(), las_point.get_G(), las_point.get_B());
 					}
-				});
+				} else {
+					auto &intensity_bounds = per_thread[t];
+
+					for (size_t i = begin; i < end; ++i) {
+						if (!reader->read_point()) {
+							break;
+						}
+						const LASpoint &las_point = reader->point;
+
+						const auto x = static_cast<float>(las_point.get_x() - world_x);
+						const auto y = static_cast<float>(las_point.get_y() - world_y);
+						const auto z = static_cast<float>(las_point.get_z() - world_z);
+						const auto intensity = static_cast<float>(las_point.get_intensity());
+
+						const size_t index = i * 4;
+						output_ptr[index + 0] = x;
+						output_ptr[index + 1] = y;
+						output_ptr[index + 2] = z;
+						output_ptr[index + 3] = intensity;
+
+						intensity_bounds.min_intensity = std::min(intensity_bounds.min_intensity, intensity);
+						intensity_bounds.max_intensity = std::max(intensity_bounds.max_intensity, intensity);
+					}
+				}
+			}));
 
 				begin = end;
-			}
-		} catch (...) {
-			for (auto &thread : worker_threads) {
-				if (thread.joinable()) {
-					thread.join();
-				}
-			}
-			throw;
 		}
 
 		for (auto &thread : worker_threads) {
-			if (thread.joinable()) {
-				thread.join();
-			}
+			thread.waitForFinished();
 		}
 
 		if (!has_rgb) {

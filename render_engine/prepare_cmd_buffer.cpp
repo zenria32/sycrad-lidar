@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <cstring>
-#include <stack>
 
 void prepare_cmd_buffer::traverse(const spatial::octree &tree, const QMatrix4x4 &vp_matrix, const QSize &viewport_size, float fov_y_degrees) {
 	draw_commands.clear();
@@ -13,6 +12,8 @@ void prepare_cmd_buffer::traverse(const spatial::octree &tree, const QMatrix4x4 
 		return;
 	}
 
+	mcfg.sse_threshold_pixels = static_cast<float>(viewport_size.height()) * 0.055f + mcfg.sse_threshold_offset;
+
 	const float fov_rad = fov_y_degrees * 3.14159265f / 180.0f;
 	const float sse_factor = static_cast<float>(viewport_size.height()) / (2.0f * std::tan(fov_rad * 0.5f));
 
@@ -21,14 +22,11 @@ void prepare_cmd_buffer::traverse(const spatial::octree &tree, const QMatrix4x4 
 	ts.sse_factor = sse_factor;
 	extract_frustum_planes(vp_matrix, ts.planes);
 
-	uint32_t budget = (mcfg.max_points_budget > 0) ? mcfg.max_points_budget : 0xFFFF'FFFFu;
-	ts.budget = &budget;
-
 	recurse(ts, 0, vp_matrix);
 }
 
 void prepare_cmd_buffer::recurse(const traversal_state &ts, int32_t node_index, const QMatrix4x4 &vp) {
-	if (node_index < 0 || *ts.budget == 0) {
+	if (node_index < 0) {
 		return;
 	}
 
@@ -43,17 +41,15 @@ void prepare_cmd_buffer::recurse(const traversal_state &ts, int32_t node_index, 
 			return;
 		}
 
-		const uint32_t draw_count = std::min(node.point_count, *ts.budget);
 		spatial::draw_indexed_command_buffer command_buffer;
-		command_buffer.index_count = draw_count;
+		command_buffer.index_count = node.point_count;
 		command_buffer.instance_count = 1;
 		command_buffer.first_index = node.first_index;
 		command_buffer.vertex_offset = 0;
 		command_buffer.first_instance = 0;
 		draw_commands.push_back(command_buffer);
 
-		*ts.budget -= draw_count;
-		visible_points += draw_count;
+		visible_points += node.point_count;
 		++visible_node_count;
 		return;
 	}
@@ -61,17 +57,15 @@ void prepare_cmd_buffer::recurse(const traversal_state &ts, int32_t node_index, 
 	if (node.point_count > 0) {
 		const float pixel_size = get_screen_pixels(node.aabb_min, node.aabb_max, vp, ts.sse_factor);
 		if (pixel_size < mcfg.sse_threshold_pixels) {
-			const uint32_t draw_count = std::min(node.point_count, *ts.budget);
 			spatial::draw_indexed_command_buffer command_buffer;
-			command_buffer.index_count = draw_count;
+			command_buffer.index_count = node.point_count;
 			command_buffer.instance_count = 1;
 			command_buffer.first_index = node.first_index;
 			command_buffer.vertex_offset = 0;
 			command_buffer.first_instance = 0;
 			draw_commands.push_back(command_buffer);
 
-			*ts.budget -= draw_count;
-			visible_points += draw_count;
+			visible_points += node.point_count;
 			++visible_node_count;
 			return;
 		}
@@ -80,9 +74,6 @@ void prepare_cmd_buffer::recurse(const traversal_state &ts, int32_t node_index, 
 	for (int i : node.children) {
 		if (i >= 0) {
 			recurse(ts, i, vp);
-		}
-		if (*ts.budget == 0) {
-			break;
 		}
 	}
 }

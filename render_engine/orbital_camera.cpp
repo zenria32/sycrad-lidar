@@ -23,7 +23,7 @@ void orbital_camera::get_bounds(const QVector3D &bounds_min, const QVector3D &bo
 	min_distance = std::max(diagonal * min_distance_ratio, 0.025f);
 	max_distance = diagonal * max_distance_ratio;
 
-	min_pan_scale = diagonal * 0.000075f;
+	min_pan_scale = diagonal * 0.000065f;
 
 	const QVector3D padding = {extent.x() * bounds_padding,
 		extent.y() * bounds_padding, 0.0f};

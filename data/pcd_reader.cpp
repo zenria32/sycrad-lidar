@@ -3,13 +3,13 @@
 #include <QDebug>
 #include <QFile>
 #include <QRegularExpression>
+#include <QtConcurrent>
 
 #include <algorithm>
 #include <array>
 #include <charconv>
 #include <functional>
 #include <limits>
-#include <thread>
 #include <vector>
 
 inline uint32_t lzf_decompress(const void *const input_data, uint32_t input_len, void *output_data, uint32_t output_len) {
@@ -197,22 +197,20 @@ struct bounds_calculator {
 
 template <typename range, typename merge>
 void multi_thread(size_t total_point_count, range &&process_range, merge &&local_merge, bounds_calculator &calculator) {
-	const unsigned int hardware_threads = std::thread::hardware_concurrency();
-	const unsigned int max_threads = (hardware_threads > 0) ? hardware_threads : 4;
-
 	if (total_point_count < 1000000) {
 		process_range(0, total_point_count, calculator);
 		return;
 	}
 
-	const unsigned int worker_thread_count = max_threads;
+	QThreadPool pool;
+	const int worker_thread_count = pool.maxThreadCount();
 
 	struct alignas(64) aligned_bounds {
 		bounds_calculator calculator;
 	};
 
 	std::vector<aligned_bounds> per_thread(worker_thread_count);
-	std::vector<std::thread> worker_threads;
+	std::vector<QFuture<void>> worker_threads;
 	worker_threads.reserve(worker_thread_count);
 
 	const size_t points_per_thread = total_point_count / worker_thread_count;
@@ -220,30 +218,18 @@ void multi_thread(size_t total_point_count, range &&process_range, merge &&local
 
 	size_t begin_index = 0;
 
-	try {
-		for (unsigned int thread_index = 0; thread_index < worker_thread_count; ++thread_index) {
-			size_t count = points_per_thread + (thread_index < remaining_points ? 1 : 0);
-			size_t end_index = begin_index + count;
+	for (int thread_index = 0; thread_index < worker_thread_count; ++thread_index) {
+		size_t count = points_per_thread + (static_cast<size_t>(thread_index) < remaining_points ? 1 : 0);
+		size_t end_index = begin_index + count;
 
-			worker_threads.emplace_back([&, begin_index, end_index, thread_index]() {
-				process_range(begin_index, end_index, per_thread[thread_index].calculator);
-			});
+		worker_threads.push_back(QtConcurrent::run(&pool, [&, begin_index, end_index, thread_index]() {
+			process_range(begin_index, end_index, per_thread[thread_index].calculator);}));
 
-			begin_index = end_index;
-		}
-	} catch (...) {
-		for (auto &thread : worker_threads) {
-			if (thread.joinable()) {
-				thread.join();
-			}
-		}
-		throw;
+		begin_index = end_index;
 	}
 
 	for (auto &thread : worker_threads) {
-		if (thread.joinable()) {
-			thread.join();
-		}
+		thread.waitForFinished();
 	}
 
 	for (const auto &local : per_thread) {
