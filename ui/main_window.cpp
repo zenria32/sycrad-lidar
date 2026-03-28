@@ -993,8 +993,7 @@ void main_window::update_orthographic_viewport() {
 	auto set_orthographic_views = [&](orthographic_viewport *ov) {
 		if (ov) {
 			ov->set_data(clipped.vertices, static_cast<quint32>(clipped.point_count),
-				clipped.stride, clipped.min_intensity, clipped.max_intensity,
-				*c, clip_min, clip_max);
+				clipped.stride, clipped.min_intensity, clipped.max_intensity, *c);
 		}
 	};
 

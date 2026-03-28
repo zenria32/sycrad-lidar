@@ -445,13 +445,12 @@ void orthographic_viewport::compute_matrices() {
 	QMatrix4x4 view;
 	view.lookAt(eye, aabb_center, up);
 
-	mvp_matrix = projection * view;
+	mvp_matrix = rhi()->clipSpaceCorrMatrix() * projection * view;
 }
 
 void orthographic_viewport::set_data(const std::vector<float> &points, quint32 point_count, quint32 stride,
 	float min_intensity, float max_intensity,
-	const cuboid &selected_cuboid,
-	const QVector3D &clip_min, const QVector3D &clip_max) {
+	const cuboid &selected_cuboid) {
 
 	staged_points = points;
 	staged_point_count = point_count;
@@ -460,16 +459,16 @@ void orthographic_viewport::set_data(const std::vector<float> &points, quint32 p
 	staged_max_intensity = max_intensity;
 	point_cloud_upload_pending = true;
 
-	aabb_min = clip_min;
-	aabb_max = clip_max;
-	aabb_center = (clip_min + clip_max) * 0.5f;
+	aabb_center = selected_cuboid.position;
+	aabb_min = aabb_center - selected_cuboid.dimension;
+	aabb_max = aabb_center + selected_cuboid.dimension;
 
 	staged_cuboid_vertices.clear();
 	staged_face_indices.clear();
 	staged_edge_indices.clear();
 
 	const QMatrix4x4 rotation(selected_cuboid.rotation.toRotationMatrix());
-	const float alpha = 0.40f;
+	const float alpha = 0.25f;
 	const float r = 1.0f;
 	const float g = 0.85f;
 	const float b = 0.0f;

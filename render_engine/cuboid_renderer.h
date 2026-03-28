@@ -18,7 +18,7 @@ class cuboid_renderer final : public abstract_renderer {
     static constexpr quint32 uniform_size = 80;
 
     static constexpr float default_alpha = 0.15f; //opacity while not selected
-    static constexpr float highlight_alpha = 0.40f; //opacity while selected
+    static constexpr float highlight_alpha = 0.25f; //opacity while selected
     static constexpr float wireframe_alpha = 1.0f;
 
     static constexpr quint32 vertices_per_cuboid = 24;

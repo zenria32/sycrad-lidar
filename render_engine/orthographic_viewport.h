@@ -23,8 +23,7 @@ class orthographic_viewport : public QRhiWidget {
 
 	void set_view_axis(view_axis axis);
 	void set_data(const std::vector<float> &points, quint32 point_count, quint32 stride, float min_intensity, float max_intensity,
-		const cuboid &selected_cuboid,
-		const QVector3D &clip_min, const QVector3D &clip_max);
+		const cuboid &selected_cuboid);
 
 	void clear();
 

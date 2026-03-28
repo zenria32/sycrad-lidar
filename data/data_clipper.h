@@ -20,5 +20,5 @@ struct clip_result {
 
 clip_result clip_data(const data_variants &data, const QVector3D &aabb_min, const QVector3D &aabb_max);
 
-QVector3D compute_clip_min(const cuboid &c, float margin_factor = 2.0f);
-QVector3D compute_clip_max(const cuboid &c, float margin_factor = 2.0f);
+QVector3D compute_clip_min(const cuboid &c, float margin_factor = 1.5f);
+QVector3D compute_clip_max(const cuboid &c, float margin_factor = 1.5f);
